@@ -31,20 +31,32 @@ jobs:
         echo "$THEOS/bin" >> $GITHUB_PATH
         echo "Theos installation complete"
     
-    - name: Verify Theos and SDK
+    - name: Verify Theos SDK and frameworks
       run: |
-        ls -la ~/theos/bin/ | head -5
-        ls -la ~/theos/sdks/ || echo "SDKs will be downloaded on first use"
+        export THEOS=~/theos
+        export PATH=$THEOS/bin:$PATH
+        
+        echo "=== Theos Location ===" 
+        which theos
+        ls -la $THEOS/bin/ | head -8
+        
+        echo "=== Searching for SDKs ===" 
+        find $THEOS -name "*.sdk" -type d 2>/dev/null | head -5
+        
+        echo "=== Looking for AppSupport ===" 
+        find $THEOS -name "AppSupport*" 2>/dev/null | head -5 || echo "Not found yet (may be downloaded during build)"
+        
+        echo "=== Theos make version ===" 
+        make --version | head -1
     
     - name: Setup Rust
-      uses: actions-rs/toolchain@v1
+      uses: dtolnay/rust-toolchain@nightly
       with:
-        toolchain: stable
-        target: aarch64-apple-ios
-        override: true
+        targets: aarch64-apple-ios
     
     - name: Verify Rust setup
       run: |
+        rustc --version
         cargo --version
         rustup target list | grep aarch64-apple-ios
     
@@ -66,9 +78,21 @@ jobs:
       run: |
         export THEOS=~/theos
         export PATH=$THEOS/bin:$PATH
+        
+        # Find and set the iOS SDK path
+        export SDKROOT=$(find $THEOS/sdks -name "*.sdk" -type d | head -1)
+        if [ -z "$SDKROOT" ]; then
+          echo "Warning: No iOS SDK found in $THEOS/sdks"
+          echo "Available SDKs:"
+          ls -la $THEOS/sdks/ || echo "No sdks directory"
+        else
+          echo "Using SDK: $SDKROOT"
+          export PATH=$SDKROOT/usr/bin:$PATH
+        fi
+        
         cd ios
         make clean
-        make FINALPACKAGE=1
+        make FINALPACKAGE=1 VERBOSE=1
         echo "Build complete"
     
     - name: Verify .deb packages
@@ -78,7 +102,7 @@ jobs:
         find ios/.theos/packages -name "*.deb" -exec ls -lh {} \;
     
     - name: Upload .deb artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ios-debs
         path: ios/.theos/packages/*.deb
@@ -86,7 +110,7 @@ jobs:
     
     - name: Create Release (on tagged push)
       if: startsWith(github.ref, 'refs/tags/')
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         files: ios/.theos/packages/*.deb
       env:
