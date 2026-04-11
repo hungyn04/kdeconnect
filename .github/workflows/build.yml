@@ -9,28 +9,25 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
+    
+    container:
+      image: theosdev/theos:latest
+      options: --user root
     
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
       
-      - name: Install Theos dependencies
+      - name: Install additional dependencies
         run: |
-          brew install ldid
-          brew install dpkg
-      
-      - name: Install Theos
-        run: |
-          git clone --recursive https://github.com/theos/theos.git $THEOS
-          echo "$THEOS/bin" >> $GITHUB_PATH
-        env:
-          THEOS: ${{ runner.temp }}/theos
+          apt-get update
+          apt-get install -y curl git build-essential
       
       - name: Set up Rust
         run: |
-          rustup update
-          rustup default nightly
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly
+          source $HOME/.cargo/env
           rustup target add aarch64-apple-ios
       
       - name: Cache Rust build artifacts
@@ -41,18 +38,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-rust-
       
-      - name: Set up Xcode and iOS SDK
-        run: |
-          sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
-          # Set Theos to use the iOS SDK
-          export SDKVERSION=latest
-      
       - name: Build .deb package
-        run: ./make.sh do FINALPACKAGE=1
+        run: |
+          source $HOME/.cargo/env
+          ./make.sh do FINALPACKAGE=1
         working-directory: ios
         env:
-          THEOS: ${{ runner.temp }}/theos
-          SDKVERSION: latest
+          THEOS: /theos
       
       - name: Find and upload .deb artifacts
         uses: actions/upload-artifact@v4
