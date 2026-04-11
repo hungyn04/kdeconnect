@@ -28,7 +28,7 @@ jobs:
           THEOS: ${{ runner.temp }}/theos
       
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@nightly
         with:
           targets: aarch64-apple-ios
       
