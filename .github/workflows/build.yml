@@ -28,9 +28,10 @@ jobs:
           THEOS: ${{ runner.temp }}/theos
       
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@nightly-2025-01-01
-        with:
-          targets: aarch64-apple-ios
+        run: |
+          rustup update
+          rustup default nightly
+          rustup target add aarch64-apple-ios
       
       - name: Cache Rust build artifacts
         uses: actions/cache@v4
