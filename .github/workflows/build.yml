@@ -1,0 +1,64 @@
+name: Build .deb Package
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Install Theos dependencies
+        run: |
+          brew install ldid
+          brew install dpkg
+      
+      - name: Install Theos
+        run: |
+          git clone --recursive https://github.com/theos/theos.git $THEOS
+          echo "$THEOS/bin" >> $GITHUB_PATH
+        env:
+          THEOS: ${{ runner.temp }}/theos
+      
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios
+      
+      - name: Cache Rust build artifacts
+        uses: actions/cache@v3
+        with:
+          path: target
+          key: ${{ runner.os }}-rust-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-rust-
+      
+      - name: Build .deb package
+        run: ./make.sh do
+        working-directory: ios
+        env:
+          THEOS: ${{ runner.temp }}/theos
+      
+      - name: Find and upload .deb artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: deb-packages
+          path: |
+            ios/.theos/debs/*.deb
+          if-no-files-found: warn
+      
+      - name: List generated files
+        if: always()
+        run: |
+          echo "=== Contents of .theos directory ==="
+          find ios/.theos -type f -name "*.deb" 2>/dev/null || echo "No .deb files found"
+          echo ""
+          echo "=== Full .theos directory structure ==="
+          ls -lR ios/.theos/ 2>/dev/null || echo ".theos directory not found"
