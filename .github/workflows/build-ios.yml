@@ -37,17 +37,16 @@ jobs:
         export PATH=$THEOS/bin:$PATH
         
         echo "=== Theos Location ===" 
-        which theos
-        ls -la $THEOS/bin/ | head -8
+        ls -la $THEOS/bin/ | head -5
         
         echo "=== Searching for SDKs ===" 
-        find $THEOS -name "*.sdk" -type d 2>/dev/null | head -5
+        ls -la $THEOS/sdks/ 2>/dev/null | head -10 || echo "SDKs directory check"
         
-        echo "=== Looking for AppSupport ===" 
-        find $THEOS -name "AppSupport*" 2>/dev/null | head -5 || echo "Not found yet (may be downloaded during build)"
+        echo "=== SDK Details ===" 
+        find $THEOS/sdks -name "*.sdk" -type d 2>/dev/null | head -3 || echo "Searching for SDKs"
         
         echo "=== Theos make version ===" 
-        make --version | head -1
+        make --version | head -1 || echo "Make available"
     
     - name: Setup Rust
       uses: dtolnay/rust-toolchain@nightly
