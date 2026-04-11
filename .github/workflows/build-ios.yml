@@ -1,0 +1,93 @@
+name: Build iOS .deb Package
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  build:
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install Xcode Command Line Tools
+      run: |
+        xcode-select --install 2>/dev/null || true
+        sudo xcode-select --reset
+        xcode-select -p
+    
+    - name: Install Theos (includes jailbreak SDKs)
+      run: |
+        echo "Installing Theos..."
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/theos/theos/master/bin/install-theos)"
+        export THEOS=~/theos
+        export PATH=$THEOS/bin:$PATH
+        echo "THEOS=$THEOS" >> $GITHUB_ENV
+        echo "$THEOS/bin" >> $GITHUB_PATH
+        echo "Theos installation complete"
+    
+    - name: Verify Theos and SDK
+      run: |
+        ls -la ~/theos/bin/ | head -5
+        ls -la ~/theos/sdks/ || echo "SDKs will be downloaded on first use"
+    
+    - name: Setup Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: aarch64-apple-ios
+        override: true
+    
+    - name: Verify Rust setup
+      run: |
+        cargo --version
+        rustup target list | grep aarch64-apple-ios
+    
+    - name: Build Rust library for iOS
+      run: |
+        cd kdeconnectjb
+        export IPHONEOS_DEPLOYMENT_TARGET=15.0
+        export RING_PREGENERATE_ASM=0
+        cargo build -r --target aarch64-apple-ios --verbose
+        echo "Rust build complete"
+    
+    - name: Generate C headers
+      run: |
+        cd kdeconnectjb
+        cargo run -r --bin generate-headers --features headers -- ../target/kdeconnectjb.h
+        test -f ../target/kdeconnectjb.h && echo "Headers generated successfully" || exit 1
+    
+    - name: Build iOS packages with Theos
+      run: |
+        export THEOS=~/theos
+        export PATH=$THEOS/bin:$PATH
+        cd ios
+        make clean
+        make FINALPACKAGE=1
+        echo "Build complete"
+    
+    - name: Verify .deb packages
+      run: |
+        ls -lh ios/.theos/packages/*.deb || exit 1
+        echo "Packages built successfully:"
+        find ios/.theos/packages -name "*.deb" -exec ls -lh {} \;
+    
+    - name: Upload .deb artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: ios-debs
+        path: ios/.theos/packages/*.deb
+        retention-days: 30
+    
+    - name: Create Release (on tagged push)
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: ios/.theos/packages/*.deb
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
