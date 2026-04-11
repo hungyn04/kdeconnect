@@ -41,11 +41,18 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-rust-
       
+      - name: Set up Xcode and iOS SDK
+        run: |
+          sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
+          # Set Theos to use the iOS SDK
+          export SDKVERSION=latest
+      
       - name: Build .deb package
-        run: ./make.sh do
+        run: ./make.sh do FINALPACKAGE=1
         working-directory: ios
         env:
           THEOS: ${{ runner.temp }}/theos
+          SDKVERSION: latest
       
       - name: Find and upload .deb artifacts
         uses: actions/upload-artifact@v4
