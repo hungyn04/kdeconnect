@@ -1,4 +1,4 @@
-#![feature(once_cell_try, duration_constructors)]
+#![feature(duration_constructors)]
 pub mod config;
 pub mod device;
 pub mod packets;

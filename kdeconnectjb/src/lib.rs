@@ -417,7 +417,9 @@ pub extern "C" fn kdeconnect_get_device_by_id(id: char_p::Ref<'_>) -> *mut KConn
 #[ffi_export]
 pub unsafe extern "C" fn kdeconnect_free_device(device: *mut KConnectFfiDevice) {
 	if !device.is_null() {
-		drop(Box::from_raw(device));
+		unsafe {
+			drop(Box::from_raw(device));
+		}
 	}
 }
 
