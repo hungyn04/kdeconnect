@@ -21,7 +21,17 @@ jobs:
         sudo xcode-select --reset
         xcode-select -p
     
+    - name: Cache Theos SDKs
+      uses: actions/cache@v4
+      with:
+        path: ~/.theos/sdks
+        key: theos-sdks-${{ runner.os }}
+        restore-keys: |
+          theos-sdks-
+    
     - name: Install Theos (includes jailbreak SDKs)
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         echo "Installing Theos..."
         /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/theos/theos/master/bin/install-theos)"
