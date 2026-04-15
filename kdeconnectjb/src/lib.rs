@@ -1,4 +1,4 @@
-#![feature(once_cell_try, let_chains)]
+#![feature(once_cell_try)]
 #[macro_use]
 mod utils;
 mod callbacks;
