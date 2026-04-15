@@ -1,0 +1,94 @@
+name: Build kdeconnectjb rootless package
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/build-kdeconnectjb.yml"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "kdeconnect/**"
+      - "kdeconnectjb/**"
+      - "ios/**"
+  pull_request:
+    paths:
+      - ".github/workflows/build-kdeconnectjb.yml"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "kdeconnect/**"
+      - "kdeconnectjb/**"
+      - "ios/**"
+
+jobs:
+  build-rootless-deb:
+    runs-on: macos-14
+    env:
+      THEOS: ${{ github.workspace }}/theos
+      THEOS_PACKAGE_SCHEME: rootless
+      RUSTUP_TOOLCHAIN: nightly
+      CARGO_TERM_COLOR: always
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Restore Theos cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.THEOS }}
+          key: theos-${{ runner.os }}-v1
+          restore-keys: |
+            theos-${{ runner.os }}-
+
+      - name: Setup Theos
+        uses: Randomblock1/theos-action@v1
+        with:
+          theos-dir: ${{ env.THEOS }}
+
+      - name: Setup Rust nightly with iOS target
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          targets: aarch64-apple-ios
+
+      - name: Restore Cargo cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cargo-${{ runner.os }}-
+
+      - name: Build rootless package
+        run: |
+          cd ios
+          ./make.sh clean
+          ./make.sh package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless
+
+      - name: Validate produced package
+        run: |
+          cd ios
+          deb_path=$(find . -maxdepth 4 -type f -name "*.deb" | head -n 1)
+          if [[ -z "$deb_path" ]]; then
+            echo "No .deb package was produced"
+            exit 1
+          fi
+          echo "Produced package: $deb_path"
+          case "$deb_path" in
+            *iphoneos-arm64*.deb) ;;
+            *)
+              echo "Expected rootless architecture package (iphoneos-arm64)"
+              exit 1
+              ;;
+          esac
+          mkdir -p ../dist
+          cp "$deb_path" ../dist/
+
+      - name: Upload rootless .deb artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kdeconnectjb-rootless-deb
+          path: dist/*.deb
+          if-no-files-found: error

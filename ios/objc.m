@@ -18,8 +18,6 @@
 #import "kdeconnectjb.h"
 #import "server.h"
 
-#import "rootless.h"
-
 #import <Foundation/Foundation.h>
 #import <CoreFoundation/CoreFoundation.h>
 #import <UIKit/UIKit.h>

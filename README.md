@@ -4,7 +4,12 @@ KDE Connect implementation in Rust and application for jailbroken/TrollStore iOS
 ## Building the iOS implementation
 1. Install [Theos](https://theos.dev)
 2. Set up building Rust for iOS; make sure `cargo build --target aarch64-apple-ios` works for a clean Rust project
-3. Run `./make.sh do` in `kdeconnectjb` directory to build for iOS and deploy to your configured Theos device
+3. Run `./make.sh package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless` in the `ios` directory to build a rootless package.
+
+## Building rootless .deb with GitHub Actions
+- Use the `Build kdeconnectjb rootless package` workflow in GitHub Actions.
+- The workflow installs Theos, uses Rust nightly, builds with `THEOS_PACKAGE_SCHEME=rootless`, and uploads the resulting `.deb` from `ios/packages/`.
+- Produced package architecture is `iphoneos-arm64`, suitable for rootless jailbreaks (for example Dopamine on iOS 15+).
 
 ## Protocol support
  - [x] `kdeconnect.identity`
