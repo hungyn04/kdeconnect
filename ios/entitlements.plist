@@ -14,7 +14,7 @@
     <key>com.apple.private.security.no-sandbox</key>
     <true/>
     <key>com.apple.private.security.storage.AppDataContainers</key>
-    <false/>
+	<true/>
 
     <key>com.apple.Pasteboard.background-access</key>
     <true/>

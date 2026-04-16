@@ -3,8 +3,12 @@
 <dict>
     <key>Label</key>
     <string>dev.r58playz.kdeconnectjb</string>
-    <key>Program</key>
-    <string>/var/jb/usr/local/bin/kdeconnectd</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/sh</string>
+        <string>-c</string>
+        <string>if [ -x /var/jb/usr/local/bin/kdeconnectd ]; then exec /var/jb/usr/local/bin/kdeconnectd; elif [ -x /usr/local/bin/kdeconnectd ]; then exec /usr/local/bin/kdeconnectd; elif [ -x /.jbroot/usr/local/bin/kdeconnectd ]; then exec /.jbroot/usr/local/bin/kdeconnectd; else exit 127; fi</string>
+    </array>
 
     <key>UserName</key>
     <string>mobile</string>

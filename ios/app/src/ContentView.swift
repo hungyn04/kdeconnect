@@ -213,10 +213,26 @@ struct ContentView: View {
         }
     }
 
+    func parseBool(_ value: Any?) -> Bool? {
+        if let boolValue = value as? Bool {
+            return boolValue
+        }
+
+        if let intValue = value as? Int {
+            return intValue != 0
+        }
+
+        if let numberValue = value as? NSNumber {
+            return numberValue.boolValue
+        }
+
+        return nil
+    }
+
     func parseConnectivity(dict: NSDictionary) throws -> ConnectedDeviceConnectivitySignal {
         if let id = dict.value(forKey: "id") as? String,
             let type = dict.value(forKey: "type") as? String,
-            let signal = dict.value(forKey: "signal") as? Int {
+            let signal = (dict.value(forKey: "strength") as? Int) ?? (dict.value(forKey: "signal") as? Int) {
             return ConnectedDeviceConnectivitySignal(id: id, type: type, strength: signal)
         } else {
             throw "Error parsing connected device connectivity"
@@ -305,10 +321,10 @@ struct ContentView: View {
             if let name = $0.value(forKey: "name") as? String,
                 let id = $0.value(forKey: "id") as? String,
                 let type = $0.value(forKey: "type") as? Int,
-                let paired = $0.value(forKey: "paired") as? Int,
+                let paired = parseBool($0.value(forKey: "paired")),
                 let batteryLevel = $0.value(forKey: "battery_level") as? Int,
-                let batteryCharging = $0.value(forKey: "battery_charging") as? Int,
-                let batteryUnderThreshold = $0.value(forKey: "battery_under_threshold") as? Int,
+                let batteryCharging = parseBool($0.value(forKey: "battery_charging")),
+                let batteryUnderThreshold = parseBool($0.value(forKey: "battery_under_threshold")),
                 let clipboard = $0.value(forKey: "clipboard") as? String,
                 let connectivity = $0.value(forKey: "connectivity") as? [NSDictionary],
                 let volume = $0.value(forKey: "volume") as? [NSDictionary],
@@ -323,10 +339,10 @@ struct ContentView: View {
                         name: name,
                         id: id,
                         type: parsedType,
-                        paired: paired == 1,
+                        paired: paired,
                         batteryLevel: batteryLevel,
-                        batteryCharging: batteryCharging == 1,
-                        batteryLow: batteryUnderThreshold == 1,
+                        batteryCharging: batteryCharging,
+                        batteryLow: batteryUnderThreshold,
                         clipboard: clipboard,
                         connectivity: parsedConnectivity,
                         volume: parsedVolume,

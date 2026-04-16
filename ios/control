@@ -1,9 +1,9 @@
 Package: dev.r58playz.kdeconnectjb
 Name: kdeconnectjb
-Version: 0.0.1
+Version: 0.0.2
 Architecture: iphoneos-arm64
 Depends: firmware (>= 15.0)
-Description: KDE Connect daemon and companion app for rootless jailbroken iOS.
+Description: KDE Connect daemon and companion app for rootless/roothide jailbroken iOS.
 Maintainer: r58Playz
 Author: r58Playz
 Section: System

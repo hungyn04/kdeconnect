@@ -2,6 +2,10 @@ import Foundation
 import UIKit
 
 var trollstore = false
+let configDir = "/var/mobile/kdeconnect"
+let typePath = "\(configDir)/type"
+let namePath = "\(configDir)/name"
+let trustedPath = "\(configDir)/trusted"
 
 if CommandLine.argc > 1 {
     print("usage: \(CommandLine.arguments[0]) [--trollstore]")
@@ -16,19 +20,23 @@ func directoryExistsAtPath(_ path: String) -> Bool {
     return exists && isDirectory.boolValue
 }
 
-if !directoryExistsAtPath("/var/mobile/kdeconnect") {
-    try FileManager.default.createDirectory(atPath: "/var/mobile/kdeconnect", withIntermediateDirectories: false)
+if !directoryExistsAtPath(configDir) {
+    try FileManager.default.createDirectory(atPath: configDir, withIntermediateDirectories: true)
 }
 
-if !FileManager.default.fileExists(atPath: "/var/mobile/kdeconnect/type") {
-    try "phone".write(toFile: "/var/mobile/kdeconnect/type", atomically: true, encoding: .utf8)
+if !FileManager.default.fileExists(atPath: typePath) {
+    try "phone".write(toFile: typePath, atomically: true, encoding: .utf8)
 }
 
-if !FileManager.default.fileExists(atPath: "/var/mobile/kdeconnect/name") {
-    try UIDevice.current.name.write(toFile: "/var/mobile/kdeconnect/name", atomically: true, encoding: .utf8)
+if !FileManager.default.fileExists(atPath: namePath) {
+    try UIDevice.current.name.write(toFile: namePath, atomically: true, encoding: .utf8)
 }
 
-var devicetypestr = try String(contentsOfFile: "/var/mobile/kdeconnect/type")
+if !FileManager.default.fileExists(atPath: trustedPath) {
+    try "".write(toFile: trustedPath, atomically: true, encoding: .utf8)
+}
+
+var devicetypestr = try String(contentsOfFile: typePath).trimmingCharacters(in: .whitespacesAndNewlines)
 
 switch devicetypestr {
     case "phone":
@@ -51,7 +59,11 @@ switch devicetypestr {
         exit(1)
 }
 
-var name = try String(contentsOfFile: "/var/mobile/kdeconnect/name")
+var name = try String(contentsOfFile: namePath).trimmingCharacters(in: .whitespacesAndNewlines)
+if name.isEmpty {
+    name = UIDevice.current.name
+    try name.write(toFile: namePath, atomically: true, encoding: .utf8)
+}
 
 // FIXME: We need to move more stuff over to Swift!
 objc_main(name, KConnectFfiDeviceType_t(devicetype.rawValue))

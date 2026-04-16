@@ -4,6 +4,7 @@
 #import <mach-o/dyld.h>
 #import <spawn.h>
 #import <sys/sysctl.h>
+#import <unistd.h>
 #import <kdeconnectjb-Swift.h>
 
 CPDistributedMessagingCenter *daemonMessageCenter;
@@ -15,6 +16,25 @@ extern int
 posix_spawnattr_set_persona_uid_np(const posix_spawnattr_t *__restrict, uid_t);
 extern int
 posix_spawnattr_set_persona_gid_np(const posix_spawnattr_t *__restrict, uid_t);
+
+static NSArray<NSString *> *daemonPathCandidates() {
+  NSMutableArray<NSString *> *paths = [NSMutableArray array];
+
+  NSString *execPath = NSBundle.mainBundle.executablePath;
+  NSRange appRange = [execPath rangeOfString:@"/Applications/"];
+  if (appRange.location != NSNotFound) {
+    NSString *prefix = [execPath substringToIndex:appRange.location];
+    if (prefix.length > 0) {
+      [paths addObject:[prefix stringByAppendingString:@"/usr/local/bin/kdeconnectd"]];
+    }
+  }
+
+  [paths addObject:@"/var/jb/usr/local/bin/kdeconnectd"];
+  [paths addObject:@"/usr/local/bin/kdeconnectd"];
+  [paths addObject:@"/.jbroot/usr/local/bin/kdeconnectd"];
+
+  return paths;
+}
 
 int spawn(NSString *path, NSArray *args) {
   NSMutableArray *argsM = args.mutableCopy ?: [NSMutableArray new];
@@ -47,19 +67,75 @@ int spawn(NSString *path, NSArray *args) {
   return 0;
 }
 
+static BOOL startDaemonIfNeeded() {
+  NSFileManager *fm = [NSFileManager defaultManager];
+  for (NSString *path in daemonPathCandidates()) {
+    if (![fm isExecutableFileAtPath:path]) {
+      continue;
+    }
+
+    int err = spawn(path, @[]);
+    if (err == 0) {
+      NSLog(@"spawned kdeconnectd from path %@", path);
+      return YES;
+    }
+
+    NSLog(@"failed spawning kdeconnectd from %@ (err=%d)", path, err);
+  }
+
+  return NO;
+}
+
+static void ensureDaemonReady() {
+  if (!daemonMessageCenter) {
+    daemonMessageCenter = [CPDistributedMessagingCenter centerNamed:@"dev.r58playz.kdeconnectjb.daemon"];
+  }
+
+  NSDictionary *probe = [daemonMessageCenter sendMessageAndReceiveReplyName:@"paired_device_list" userInfo:nil];
+  if ([probe isKindOfClass:[NSDictionary class]]) {
+    return;
+  }
+
+  if (!startDaemonIfNeeded()) {
+    return;
+  }
+
+  for (NSUInteger i = 0; i < 20; i++) {
+    usleep(250000);
+    probe = [daemonMessageCenter sendMessageAndReceiveReplyName:@"paired_device_list" userInfo:nil];
+    if ([probe isKindOfClass:[NSDictionary class]]) {
+      NSLog(@"kdeconnectd is now responding");
+      return;
+    }
+  }
+
+  NSLog(@"kdeconnectd did not respond after spawn attempts");
+}
+
 void createMessageCenter() {
   daemonMessageCenter = [CPDistributedMessagingCenter centerNamed:@"dev.r58playz.kdeconnectjb.daemon"];
+  ensureDaemonReady();
   NSLog(@"daemon center: %@", daemonMessageCenter);
 }
 
 NSArray *getConnectedDevices() {
-  NSArray *ret = [[daemonMessageCenter sendMessageAndReceiveReplyName:@"connected_device_list" userInfo:nil] objectForKey:@"info"];
+  ensureDaemonReady();
+  NSDictionary *reply = [daemonMessageCenter sendMessageAndReceiveReplyName:@"connected_device_list" userInfo:nil];
+  NSArray *ret = [reply objectForKey:@"info"];
+  if (![ret isKindOfClass:[NSArray class]]) {
+    return @[];
+  }
   NSLog(@"daemon response: %@", ret);
   return ret;
 }
 
 NSArray *getPairedDevices() {
-  NSArray *ret =  [[daemonMessageCenter sendMessageAndReceiveReplyName:@"paired_device_list" userInfo:nil] objectForKey:@"info"];
+  ensureDaemonReady();
+  NSDictionary *reply = [daemonMessageCenter sendMessageAndReceiveReplyName:@"paired_device_list" userInfo:nil];
+  NSArray *ret = [reply objectForKey:@"info"];
+  if (![ret isKindOfClass:[NSArray class]]) {
+    return @[];
+  }
   NSLog(@"daemon response: %@", ret);
   return ret;
 }

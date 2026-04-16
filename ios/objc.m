@@ -66,8 +66,17 @@ typedef struct {
 } BatteryInfo;
 
 NSString *getWifiNetworkSsid() {
+  if (!wifiClient) {
+    return nil;
+  }
+
 	WiFiNetworkRef network = WiFiDeviceClientCopyCurrentNetwork(wifiClient);
-	return (__bridge_transfer NSString *)WiFiNetworkGetSSID(network);
+  if (!network) {
+    return nil;
+  }
+
+  NSString *ssid = (__bridge NSString *)WiFiNetworkGetSSID(network);
+  return ssid ? [ssid copy] : nil;
 }
 
 void trySendMessageToApp(NSString *msg, NSDictionary *info) {
@@ -460,19 +469,26 @@ int objc_main(const char *deviceName, KConnectFfiDeviceType_t deviceType) {
     NSLog(@"saved files path: %@", DOCS_PATH);
 
     wifiManager = WiFiManagerClientCreate(kCFAllocatorDefault, 0);
-    CFArrayRef devices = WiFiManagerClientCopyDevices(wifiManager);
-    if (!devices) {
-      return 0;
+    CFArrayRef devices = wifiManager ? WiFiManagerClientCopyDevices(wifiManager) : nil;
+    if (devices && CFArrayGetCount(devices) > 0) {
+      wifiClient = (WiFiDeviceClientRef)CFArrayGetValueAtIndex(devices, 0);
+    } else {
+      wifiClient = nil;
+      NSLog(@"MobileWiFi device list is unavailable; trusted network filtering will be skipped.");
     }
-    wifiClient = (WiFiDeviceClientRef)CFArrayGetValueAtIndex(devices, 0);
+    if (devices) {
+      CFRelease(devices);
+    }
 
-    if (TRUSTED_NETWORKS.count) {
+    if (TRUSTED_NETWORKS.count && wifiClient) {
       NSString *ssid = getWifiNetworkSsid();
       while (!ssid || ![TRUSTED_NETWORKS containsObject:ssid]) {
         NSLog(@"Waiting 60 seconds for trusted network");
         usleep(60000000);
         ssid = getWifiNetworkSsid();
       }
+    } else if (TRUSTED_NETWORKS.count) {
+      NSLog(@"Trusted networks are configured but WiFi client is unavailable; continuing without WiFi gating.");
     }
 
     NSLog(@"[Flotsam:INFO] Hammer time.");
@@ -609,6 +625,10 @@ int objc_main(const char *deviceName, KConnectFfiDeviceType_t deviceType) {
     });
 
     CFRunLoopTimerRef trustedNetworkLoop = CFRunLoopTimerCreateWithHandler(NULL, CFAbsoluteTimeGetCurrent(), 10.0, 0, 0, ^(CFRunLoopTimerRef timer){
+	  if (!wifiClient) {
+		return;
+	  }
+
       NSString *ssid = getWifiNetworkSsid();
       if (TRUSTED_NETWORKS.count && (!ssid || ![TRUSTED_NETWORKS containsObject:ssid])) {
         NSLog(@"no longer on trusted network!!");
